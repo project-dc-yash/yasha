@@ -1,0 +1,193 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Helmet | Linked Logic Dashboard</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --accent: #58a6ff;
+            --danger: #da3633;
+            --success: #238636;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: #c9d1d9;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container { max-width: 900px; width: 100%; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid #30363d;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            transition: 0.4s ease;
+        }
+
+        .value { font-size: 3rem; font-weight: bold; margin: 10px 0; }
+        .label { color: #8b949e; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
+        
+        .text-yes { color: var(--success); }
+        .text-no { color: var(--danger); }
+        .border-danger { border: 2px solid var(--danger) !important; background: #2d1616 !important; }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            box-sizing: border-box;
+            background: #0d1117;
+            border: 1px solid var(--accent);
+            color: white;
+            border-radius: 8px;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        #timer-box { display: none; background: var(--danger); padding: 10px; border-radius: 5px; margin-top: 10px; color: white; font-weight: bold; }
+        .btn-cancel { background: white; color: black; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold; width:100%; display:none; margin-top:10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header style="text-align: center;">
+        <h1>Linked Safety Terminal</h1>
+        <p>Impact Tracking depends on IR Detection</p>
+    </header>
+
+    <div class="card" style="max-width: 400px; margin: 0 auto;">
+        <span class="label">Emergency Contact</span>
+        <input type="text" id="phone" placeholder="919876543210">
+    </div>
+
+    <div class="grid">
+        <div class="card" id="ir-card">
+            <span class="label">IR Sensor (Helmet)</span>
+            <div id="ir-val" class="value text-yes">YES</div>
+            <div id="ir-status">STATUS: SECURE</div>
+        </div>
+
+        <div class="card" id="mpu-card">
+            <span class="label">Impact Force</span>
+            <div class="value"><span id="g-force">1.00</span>G</div>
+            <div id="status-desc">Monitoring Motion...</div>
+            <div id="timer-box">CRASH! ALERTING IN: <span id="seconds">5</span>s</div>
+            <button id="cancel-btn" class="btn-cancel" onclick="cancelAlert()">STOP ALERT</button>
+        </div>
+
+        <div class="card" id="mq2-card">
+            <span class="label">MQ-2 Alcohol</span>
+            <div id="mq2-val" class="value">0.01</div>
+            <div id="mq2-status" style="color: var(--success);">SOBER</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let isEmergency = false;
+    let countdown;
+    let irState = true; // Global variable for IR state
+
+    // --- 1. IR SENSOR (Updates every 2 Seconds) ---
+    setInterval(() => {
+        if (isEmergency) return;
+        
+        irState = !irState; 
+        const irCard = document.getElementById('ir-card');
+        const irVal = document.getElementById('ir-val');
+        const irStatus = document.getElementById('ir-status');
+
+        if (irState) {
+            irVal.innerText = "YES";
+            irVal.className = "value text-yes";
+            irStatus.innerText = "STATUS: SECURE";
+            irCard.classList.remove('border-danger');
+        } else {
+            irVal.innerText = "NO";
+            irVal.className = "value text-no";
+            irStatus.innerText = "STATUS: REMOVED";
+            irCard.classList.add('border-danger');
+        }
+    }, 2000);
+
+    // --- 2. IMPACT SENSOR (Updates every 2 Seconds) ---
+    // LINKED TO IR STATE
+    setInterval(() => {
+        if (isEmergency) return;
+        
+        const gDisplay = document.getElementById('g-force');
+        const statusDesc = document.getElementById('status-desc');
+
+        if (irState === false) {
+            // If helmet is NOT worn, force 0.00G
+            gDisplay.innerText = "0.00";
+            statusDesc.innerText = "Ignition Disabled - Wear Helmet";
+        } else {
+            // If helmet is YES, show active data and monitor for crashes
+            let gValue = (0.95 + Math.random() * 0.1).toFixed(2);
+            statusDesc.innerText = "Monitoring Motion...";
+
+            if (Math.random() > 0.94) {
+                gValue = (1.50 + Math.random()).toFixed(2);
+                autoTriggerCrash(gValue);
+            }
+            gDisplay.innerText = gValue;
+        }
+    }, 2000);
+
+    // --- 3. MQ-2 ALCOHOL (Updates every 4 Seconds) ---
+    setInterval(() => {
+        if (isEmergency) return;
+        let alc = (Math.random() * 0.03).toFixed(2);
+        document.getElementById('mq2-val').innerText = alc;
+    }, 4000);
+
+    function autoTriggerCrash(g) {
+        let phone = document.getElementById('phone').value.replace(/\D/g, '');
+        if (!phone) return;
+
+        isEmergency = true;
+        document.getElementById('mpu-card').classList.add('border-danger');
+        document.getElementById('timer-box').style.display = "block";
+        document.getElementById('cancel-btn').style.display = "block";
+
+        let timeLeft = 5;
+        countdown = setInterval(() => {
+            timeLeft--;
+            document.getElementById('seconds').innerText = timeLeft;
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                window.location.href = `https://api.whatsapp.com/send?phone=${phone}&text=Emergency! Impact detected: ${g}G`;
+            }
+        }, 1000);
+    }
+
+    function cancelAlert() {
+        clearInterval(countdown);
+        isEmergency = false;
+        document.getElementById('mpu-card').classList.remove('border-danger');
+        document.getElementById('timer-box').style.display = "none";
+        document.getElementById('cancel-btn').style.display = "none";
+    }
+</script>
+
+</body>
+</html>
